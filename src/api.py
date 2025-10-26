@@ -9,6 +9,8 @@ import asyncio
 from models import (
     LLMRequest,
     LLMResponse,
+    LoginRequest,
+    LoginResponse,
     SummaryRequest,
     SummaryFromUrlRequest,
     SummaryResponse,
@@ -28,6 +30,7 @@ from models import (
     PoliticalStanceRequest,
     PoliticalStanceResponse,
 )
+import bcrypt
 import jwt
 from jwt import PyJWTError, ExpiredSignatureError, InvalidTokenError
 
@@ -35,11 +38,40 @@ router = APIRouter()
 
 # === JWT AUTH ===
 security = HTTPBearer()
-JWT_SECRET = os.getenv("JWT_SECRET", "dev_secret_key")      
+JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_EXPIRE_MINUTES = os.getenv("JET_EXPIRE_MINUTES", "120")
+API_SECRET = os.getenv("API_SECRET")
 
+if not JWT_SECRET or not API_SECRET:
+    print("No Secrets given.")
+    quit();
 
-async def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(security)) -> bool:
+FAKE_USERS_DB = {
+    "API_USER": bcrypt.hashpw(bytes(API_SECRET, encoding="utf-8"), bcrypt.gensalt()).decode("utf-8"),
+}
+
+@router.post("/login", response_model=LoginResponse)
+async def login(req: LoginRequest):
+    hashed_pw = FAKE_USERS_DB.get(req.username)
+    if not hashed_pw:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not bcrypt.checkpw(req.password.encode("utf-8"), hashed_pw.encode("utf-8")):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    expire = datetime.utcnow() + datetime.timedelta(minutes=float(JWT_EXPIRE_MINUTES))
+    payload = {
+        "sub": req.username,
+        "exp": expire,
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+    return LoginResponse(access_token=token)
+
+async def verify_jwt(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> bool:
     token = credentials.credentials
     if not token:
         raise HTTPException(
@@ -52,7 +84,9 @@ async def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(securit
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
 
         exp = payload.get("exp")
-        if exp and datetime.fromtimestamp(exp, tz=datetime.timezone.utc) < datetime.now(datetime.timezone.utc):
+        if exp and datetime.fromtimestamp(exp, tz=datetime.timezone.utc) < datetime.now(
+            datetime.timezone.utc
+        ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has expired",

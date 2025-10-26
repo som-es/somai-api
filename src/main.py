@@ -1,8 +1,9 @@
+from dotenv import load_dotenv
+_ = load_dotenv()
+
 from fastapi import FastAPI
 from api import router as api_router
-from dotenv import load_dotenv
 
-load_dotenv()
 
 app = FastAPI(
     title="LLM & Delegate Analysis API",
