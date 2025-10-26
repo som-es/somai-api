@@ -1,5 +1,6 @@
 import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timedelta, timezone
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
 import os
@@ -51,6 +52,28 @@ FAKE_USERS_DB = {
     "API_USER": bcrypt.hashpw(bytes(API_SECRET, encoding="utf-8"), bcrypt.gensalt()).decode("utf-8"),
 }
 
+def is_localhost(ip: str) -> bool:
+    return ip in ("127.0.0.1", "::1")
+
+@router.post("/local_login", response_model=LoginResponse)
+async def local_login(request: Request):
+    client_ip = request.client.host
+    if not is_localhost(client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Local login only allowed from 127.0.0.1, got {client_ip}"
+        )
+
+    expire = datetime.utcnow() + timedelta(minutes=float(JWT_EXPIRE_MINUTES))
+    payload = {
+        "sub": "API_USER",
+        "exp": expire,
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+    return LoginResponse(access_token=token)
+
+
 @router.post("/login", response_model=LoginResponse)
 async def login(req: LoginRequest):
     hashed_pw = FAKE_USERS_DB.get(req.username)
@@ -84,8 +107,8 @@ async def verify_jwt(
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
 
         exp = payload.get("exp")
-        if exp and datetime.fromtimestamp(exp, tz=datetime.timezone.utc) < datetime.now(
-            datetime.timezone.utc
+        if exp and datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(
+            timezone.utc
         ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
