@@ -1,0 +1,90 @@
+
+from pydantic import BaseModel, HttpUrl
+from typing import List, Optional
+
+
+# === LLM REQUESTS ===
+class LLMRequest(BaseModel):
+    input: str
+    prompt: str
+    model: str
+    use_openai: bool = False
+
+class LLMResponse(BaseModel):
+    result: str
+
+
+# === SUMMARIZATION ===
+class SummaryRequest(BaseModel):
+    input: str
+    model: str
+
+class SummaryFromUrlRequest(BaseModel):
+    url: HttpUrl
+    model: str
+
+class SummaryResponse(BaseModel):
+    summary: str
+
+
+# === TOPICS ===
+class TopicsRequest(BaseModel):
+    input: str
+
+class TopicsFromUrlRequest(BaseModel):
+    url: HttpUrl
+
+class TopicsResponse(BaseModel):
+    topics: List[str]
+
+
+# === VIDEO QA ===
+class QAItem(BaseModel):
+    question: str
+    answer: str
+
+class QAResponse(BaseModel):
+    qa: List[QAItem]
+
+
+# === SIMILARITY ===
+class SimilarityResponse(BaseModel):
+    similarity_score: float
+
+
+# === SPEECH EMBEDDING ===
+class SpeechEmbeddingAddRequest(BaseModel):
+    delegate_id: int
+    speech: str
+    speech_id: Optional[int] = None
+
+class SpeechEmbeddingUpdateRequest(BaseModel):
+    delegate_id: int
+
+class GenericStatusResponse(BaseModel):
+    status: str
+
+
+# === EMBEDDING OPS ===
+class EmbeddingRequest(BaseModel):
+    input: str
+
+class EmbeddingResponse(BaseModel):
+    embedding: List[float]
+
+class EmbedAndCosineRequest(BaseModel):
+    lhs: str
+    rhs: str
+
+class CosineResponse(BaseModel):
+    cosine_similarity: float
+
+
+# === POLITICAL STANCE ===
+class PoliticalStanceRequest(BaseModel):
+    delegate_id: int
+    question_or_input: str
+    model: str
+
+class PoliticalStanceResponse(BaseModel):
+    stance: str
