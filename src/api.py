@@ -7,6 +7,7 @@ import os
 from typing import AsyncGenerator
 import asyncio
 
+from llamacpp_client.llamacpp_client import DEFAULT_OPTIONS
 from models import (
     LLMRequest,
     LLMResponse,
@@ -34,6 +35,8 @@ from models import (
 import bcrypt
 import jwt
 from jwt import PyJWTError, ExpiredSignatureError, InvalidTokenError
+
+from llamacpp_client import LlamaCppAPIClient
 
 router = APIRouter()
 
@@ -132,12 +135,29 @@ async def verify_jwt(
         )
 
 
+SERVER_URL = "http://10.30.0.164:8080"
+
+async def make_llm_request(req: LLMRequest) -> str:
+    options = DEFAULT_OPTIONS
+    if req.model:
+        options["model"] = req.model
+    llama_client = LlamaCppAPIClient(base_url=SERVER_URL, options=options)
+
+    messages = [{"role": "system", "content": req.system}, {"role": "user", "content": req.input}]
+    out = ""
+    async for chunk in llama_client.stream_completion(messages):
+        delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content")
+        if delta:
+            out += delta
+    return out
+
 # === LLM REQUESTS ===
 @router.post("/make_llm_request", response_model=LLMResponse)
-async def make_llm_request(
+async def make_llm_request_route(
     req: LLMRequest, _: bool = Depends(verify_jwt)
 ) -> LLMResponse:
-    return LLMResponse(result="LLM output placeholder")
+    out = await make_llm_request(req) 
+    return LLMResponse(result=out)
 
 
 @router.post("/make_llm_request_streamed")
@@ -157,7 +177,39 @@ async def make_llm_request_streamed(
 async def summarize_input(
     req: SummaryRequest, _: bool = Depends(verify_jwt)
 ) -> SummaryResponse:
-    return SummaryResponse(summary="summary placeholder")
+    llm_request = LLMRequest(
+        input=req.input,
+        system="""
+        Du bist ein Experte für das Zusammenfassen von Gesetzestexten des österreichischen Nationalrats in Form einer Liste an Schwerpunkten für Laien und politisch Interessierte. 
+        Dabei geht es um den vollständigen Kontext, den der Gestzestext behandelt, um einfach nachzuvollziehen, was die Änderungen bedeuten. 
+        Fasse den Gesetzestext zusammen. Entferne Informationen über typische Formulierungen mit Paragraphen und Absätze, die in dem Gesetzestext vorkommen können.
+        Erhalte Informationen über die wirklich aussagekräftigen wichtigen Inhalte des Gesetzestextes und lass die Informationen weg, die zur Verwirrung von Laien führen.
+        Verwendungen von zum Beispiel "§ 18 Abs. 2a", "§ 20 Abs. 10 bis 20 und § 48 Z 3b", ... führt maßgeblich zur Verwirrung und Abschreckung von Laien, weshalb diese nicht in der Zusammenfassung erscheinen dürfen.
+        Zahlen und andere wichtigen Informationen sollten in der Zusammenfassung erhalten bleiben. 
+        Hebe dabei die wichtigsten Schwerpunkte nur als roh-text (keine Markdown Formatierungen, etc.) Liste hervor.
+        Fang direkt ohne Einleitung mit den Schwerpunkten an und verzichte dabei auf sonstige Markdown Formatierungen!
+        Schreibe pro Seite Gesetzestext maximal 5 Punkte.
+        Der erste Punkt muss eine grobe Zusammenfassung sein, worum es allgemein beim Gesetzestext geht.
+        Positives Beispiel, so muss dein Output sein:
+        - Punkt 1
+        - Punkt 2
+        - Punkt 3
+        - Punkt 4
+        - ...
+
+        Negatives Beispiel, so darf dein Output NICHT sein:
+        Im folgenden Teil werden viele Punkte besprochen:
+        - **Punkt 1**: § 13 Abs. 6b  
+        - **Punkt 2** [...] § 32 Abs. 12 bis 33 und § 44 Z 5c
+        - **Punkt 3**: ...
+        - **Punkt 4**
+        - ...
+        """,
+        model=req.model,
+        use_openai=False,
+    )
+    out = await make_llm_request(llm_request)
+    return SummaryResponse(summary=out)
 
 
 @router.post("/summarize_input_streamed")

@@ -6,8 +6,8 @@ from typing import List, Optional
 # === LLM REQUESTS ===
 class LLMRequest(BaseModel):
     input: str
-    prompt: str
-    model: str
+    system: str
+    model: Optional[str]
     use_openai: bool = False
 
 class LLMResponse(BaseModel):
@@ -17,7 +17,7 @@ class LLMResponse(BaseModel):
 # === SUMMARIZATION ===
 class SummaryRequest(BaseModel):
     input: str
-    model: str
+    model: Optional[str] = None
 
 class SummaryFromUrlRequest(BaseModel):
     url: HttpUrl
@@ -84,7 +84,7 @@ class CosineResponse(BaseModel):
 class PoliticalStanceRequest(BaseModel):
     delegate_id: int
     question_or_input: str
-    model: str
+    model: Optional[str]
 
 class PoliticalStanceResponse(BaseModel):
     stance: str
