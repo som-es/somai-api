@@ -9,6 +9,7 @@ class LLMRequest(BaseModel):
     system: str
     model: Optional[str]
     use_openai: bool = False
+    json_schema: Optional[dict] = None
 
 class LLMResponse(BaseModel):
     result: str
@@ -18,6 +19,7 @@ class LLMResponse(BaseModel):
 class SummaryRequest(BaseModel):
     input: str
     model: Optional[str] = None
+    json_schema: Optional[dict] = None
 
 class SummaryFromUrlRequest(BaseModel):
     url: HttpUrl

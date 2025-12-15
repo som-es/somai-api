@@ -36,7 +36,7 @@ class LlamaCppAPIClient:
         self.options.update(options)
 
     async def stream_completion(
-        self, messages: list[dict]
+        self, messages: list[dict], json_schema: dict | None = None
     ) -> AsyncGenerator[dict, None]:
         url = self.base_url.rstrip("/") + "/v1/chat/completions"
 
@@ -49,6 +49,7 @@ class LlamaCppAPIClient:
             "repeat_penalty": self.options["repeat_penalty"],
             "max_tokens": self.options["max_tokens"],
             "stream": self.options["stream"],
+            "json_schema": json_schema,
             "stop": self.options["stop"],
         }
 

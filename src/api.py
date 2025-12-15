@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 import os
 from typing import AsyncGenerator
 import asyncio
+import logging
 
 from llamacpp_client.llamacpp_client import DEFAULT_OPTIONS
 from models import (
@@ -54,6 +55,10 @@ if not JWT_SECRET or not API_SECRET:
 FAKE_USERS_DB = {
     "API_USER": bcrypt.hashpw(bytes(API_SECRET, encoding="utf-8"), bcrypt.gensalt()).decode("utf-8"),
 }
+
+logger = logging.getLogger("uvicorn.error")
+
+logger.info(f"Received summarize request with input length: hi")
 
 def is_localhost(ip: str) -> bool:
     return ip in ("127.0.0.1", "::1")
@@ -145,7 +150,7 @@ async def make_llm_request(req: LLMRequest) -> str:
 
     messages = [{"role": "system", "content": req.system}, {"role": "user", "content": req.input}]
     out = ""
-    async for chunk in llama_client.stream_completion(messages):
+    async for chunk in llama_client.stream_completion(messages, json_schema=req.json_schema):
         delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content")
         if delta:
             out += delta
@@ -188,7 +193,6 @@ async def summarize_input(
         Zahlen und andere wichtigen Informationen sollten in der Zusammenfassung erhalten bleiben. 
         Hebe dabei die wichtigsten Schwerpunkte nur als roh-text (keine Markdown Formatierungen, etc.) Liste hervor.
         Fang direkt ohne Einleitung mit den Schwerpunkten an und verzichte dabei auf sonstige Markdown Formatierungen!
-        Schreibe pro Seite Gesetzestext maximal 5 Punkte.
         Der erste Punkt muss eine grobe Zusammenfassung sein, worum es allgemein beim Gesetzestext geht.
         Positives Beispiel, so muss dein Output sein:
         - Punkt 1
@@ -204,9 +208,12 @@ async def summarize_input(
         - **Punkt 3**: ...
         - **Punkt 4**
         - ...
+
+        Schreibe maximal 5 Schwerpunkte und halte dich kurz!
         """,
         model=req.model,
         use_openai=False,
+        json_schema=req.json_schema
     )
     out = await make_llm_request(llm_request)
     return SummaryResponse(summary=out)
