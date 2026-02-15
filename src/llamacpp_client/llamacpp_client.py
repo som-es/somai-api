@@ -1,8 +1,8 @@
 import asyncio
 import json
 from collections.abc import AsyncGenerator
-
-from aiohttp import ClientSession
+import aiohttp
+from aiohttp import  ClientSession
 
 DEFAULT_BASE_URL = "http://localhost:8080"
 
@@ -19,11 +19,12 @@ DEFAULT_OPTIONS = {
     "top_p": 0.9,
     "top_k": 40,
     "repeat_penalty": 1.05,
-    "max_tokens": 4096,
+    "max_tokens": 4096 * 2,
     "stream": True,
     "stop": ["<|eot_id|>", "</s>"],
 }
 
+timeout = aiohttp.ClientTimeout(total=1200)
 
 class LlamaCppAPIClient:
     def __init__(
@@ -53,7 +54,7 @@ class LlamaCppAPIClient:
             "stop": self.options["stop"],
         }
 
-        async with ClientSession() as session:
+        async with ClientSession(timeout=timeout) as session:
             async with session.post(url, headers=self.headers, json=body) as resp:
                 if resp.status != 200:
                     raise Exception(f"HTTP error {resp.status}")
