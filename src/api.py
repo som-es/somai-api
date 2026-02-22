@@ -62,6 +62,10 @@ logger = logging.getLogger("uvicorn.error")
 
 logger.info(f"Received summarize request with input length: hi")
 
+model = whisper.load_model(
+        name="medium",
+        device="cpu")
+
 def is_localhost(ip: str) -> bool:
     return ip in ("127.0.0.1", "::1")
 
@@ -271,11 +275,16 @@ async def make_topics_predictions_from_url(
 @router.get("/extract_delegate_preview_video_qa", response_model=QAResponse)
 async def extract_delegate_preview_video_qa(
     delegate_id: int, _: bool = Depends(verify_jwt)
-) -> QAResponse:
-    model = whisper.load_model(
-        name="medium",
-        device="cpu")
-    transcribe_results = process_video(delegate_id, model)
+) -> QAResponse: 
+    transcribe_results = None
+    try:
+        transcribe_results = process_video(delegate_id, model)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal processing error")
     
     qa_items = []
     for result in transcribe_results:

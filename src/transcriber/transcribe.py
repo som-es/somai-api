@@ -9,7 +9,7 @@ from transcriber.video_download import download_video_by_id
 pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"  # Passe den Pfad an
 
 # Funktion zum Teilen des Videos in Abschnitte
-def segment_video(video_file, ocr_timestamps):
+def segment_video(delegate_id, video_file, ocr_timestamps):
     video = VideoFileClip(video_file)
     segment_files = []
 
@@ -17,7 +17,7 @@ def segment_video(video_file, ocr_timestamps):
         start_time = ocr_timestamps[i]
         end_time = ocr_timestamps[i + 1] if i + 1 < len(ocr_timestamps) else video.duration
         segment = video.subclipped(start_time, end_time)
-        segment_file = f"segment_{i + 1}.mp4"
+        segment_file = f"segment_{delegate_id}_{i + 1}.mp4"
         segment.write_videofile(segment_file, codec="libx264", audio_codec="aac")
         segment_files.append(segment_file)
 
@@ -62,7 +62,7 @@ def process_video(delegate_id, model, directory="delegate_videos"):
 
     try:
         # Schritt 3: Video in Abschnitte teilen
-        segment_files = segment_video(video_file, ocr_timestamps)
+        segment_files = segment_video(delegate_id, video_file, ocr_timestamps)
     except:
         print(f"CANNOT SEGMENT VIDEO {video_file}")
         return

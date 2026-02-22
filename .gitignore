@@ -2,3 +2,4 @@ __pycache__
 .env
 nohup.out
 delegate_videos
+segment*mp4
