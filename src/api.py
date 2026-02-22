@@ -7,6 +7,8 @@ import os
 from typing import AsyncGenerator
 import asyncio
 import logging
+import whisper
+from transcriber import process_video
 
 from llamacpp_client.llamacpp_client import DEFAULT_OPTIONS
 from models import (
@@ -270,20 +272,18 @@ async def make_topics_predictions_from_url(
 async def extract_delegate_preview_video_qa(
     delegate_id: int, _: bool = Depends(verify_jwt)
 ) -> QAResponse:
+    model = whisper.load_model(
+        name="medium",
+        device="cpu")
+    transcribe_results = process_video(delegate_id, model)
+    
+    qa_items = []
+    for result in transcribe_results:
+        qa_items.append(QAItem(question=result["question"], answer=result["answer"]))
+
     return QAResponse(
-        qa=[QAItem(question="Q1", answer="A1"), QAItem(question="Q2", answer="A2")]
+        qa=qa_items
     )
-
-
-# === DELEGATE INTEREST SIMILARITY ===
-@router.get(
-    "/compute_delegate_interests_division_similarity", response_model=SimilarityResponse
-)
-async def compute_delegate_interests_division_similarity(
-    delegate_id: int, _: bool = Depends(verify_jwt)
-) -> SimilarityResponse:
-    return SimilarityResponse(similarity_score=0.87)
-
 
 # === SPEECH EMBEDDINGS ===
 @router.post("/speech_embedding/add", response_model=GenericStatusResponse)

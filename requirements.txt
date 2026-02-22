@@ -5,3 +5,7 @@ python-dotenv>=1.0.1
 pydantic>=2.8.2
 bcrypt>=5.0.0
 aiohttp>=3.13.2
+pytesseract>=0.3.13
+openai-whisper>=20250625
+opencv-python>=4.13
+moviepy>=2.2.1

@@ -1,0 +1,16 @@
+[project]
+name = "somai-api"
+version = "0.1.0"
+description = "internal AI API for somes"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "whisper",
+    "pytesseract",
+    "opencv-python",
+    "moviepy",
+    "python-multipart",
+    "requests"
+]
+
