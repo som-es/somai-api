@@ -1,8 +1,8 @@
 import asyncio
 import json
 from collections.abc import AsyncGenerator
-import aiohttp
-from aiohttp import  ClientSession
+
+from aiohttp import ClientSession, ClientTimeout
 
 DEFAULT_BASE_URL = "http://localhost:8080"
 
@@ -41,10 +41,16 @@ class LlamaCppAPIClient:
     ) -> AsyncGenerator[dict, None]:
         url = self.base_url.rstrip("/") + "/v1/chat/completions"
 
+        timeout = ClientTimeout(
+            total=None,
+            sock_connect=60,
+            sock_read=None,
+        )
+
         body = {
             "model": self.options["model"],
             "messages": messages,
-            "temperature": self.options["temperature"],
+            "temperature": 0.1 if json_schema else self.options["temperature"],
             "top_p": self.options["top_p"],
             "top_k": self.options["top_k"],
             "repeat_penalty": self.options["repeat_penalty"],
@@ -76,8 +82,19 @@ async def test():
     client = LlamaCppAPIClient(base_url="http://10.30.0.164:8080")
 
     messages = [{"role": "user", "content": "Explain why the sky looks blue."}]
+    json_schema = {
+        "type": "object",
+        "properties": {
+            "explanation": {"type": "string"},
+            "references": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+        },
+        "required": ["explanation", "references"],
+    }
 
-    async for chunk in client.stream_completion(messages):
+    async for chunk in client.stream_completion(messages, json_schema=json_schema):
         delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content")
         if delta:
             print(delta, end="", flush=True)

@@ -97,7 +97,7 @@ async def login(req: LoginRequest):
     if not bcrypt.checkpw(req.password.encode("utf-8"), hashed_pw.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    expire = datetime.utcnow() + datetime.timedelta(minutes=float(JWT_EXPIRE_MINUTES))
+    expire = datetime.utcnow() + timedelta(minutes=float(JWT_EXPIRE_MINUTES))
     payload = {
         "sub": req.username,
         "exp": expire,
@@ -158,6 +158,7 @@ async def make_llm_request(req: LLMRequest) -> str:
     out = ""
     async for chunk in llama_client.stream_completion(messages, json_schema=req.json_schema):
         delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content")
+        print(delta, end="", flush=True)
         if delta:
             out += delta
     return out
@@ -167,7 +168,7 @@ async def make_llm_request(req: LLMRequest) -> str:
 async def make_llm_request_route(
     req: LLMRequest, _: bool = Depends(verify_jwt)
 ) -> LLMResponse:
-    out = await make_llm_request(req) 
+    out = await make_llm_request(req)
     return LLMResponse(result=out)
 
 
@@ -177,79 +178,6 @@ async def make_llm_request_streamed(
 ) -> StreamingResponse:
     async def stream() -> AsyncGenerator[str, None]:
         for chunk in ["streaming", "llm", "response"]:
-            yield f"{chunk}\n"
-            await asyncio.sleep(0.3)
-
-    return StreamingResponse(stream(), media_type="text/plain")
-
-
-# === SUMMARIZATION ===
-@router.post("/summarize_input", response_model=SummaryResponse)
-async def summarize_input(
-    req: SummaryRequest, _: bool = Depends(verify_jwt)
-) -> SummaryResponse:
-    llm_request = LLMRequest(
-        input=req.input,
-        system="""
-        Du bist ein Experte für das Zusammenfassen von Gesetzestexten des österreichischen Nationalrats in Form einer Liste an Schwerpunkten für Laien und politisch Interessierte. 
-        Dabei geht es um den vollständigen Kontext, den der Gestzestext behandelt, um einfach nachzuvollziehen, was die Änderungen bedeuten. 
-        Fasse den Gesetzestext zusammen. Entferne Informationen über typische Formulierungen mit Paragraphen und Absätze, die in dem Gesetzestext vorkommen können.
-        Erhalte Informationen über die wirklich aussagekräftigen wichtigen Inhalte des Gesetzestextes und lass die Informationen weg, die zur Verwirrung von Laien führen.
-        Verwendungen von zum Beispiel "§ 18 Abs. 2a", "§ 20 Abs. 10 bis 20 und § 48 Z 3b", ... führt maßgeblich zur Verwirrung und Abschreckung von Laien, weshalb diese nicht in der Zusammenfassung erscheinen dürfen.
-        Zahlen und andere wichtigen Informationen sollten in der Zusammenfassung erhalten bleiben. 
-        Hebe dabei die wichtigsten Schwerpunkte nur als roh-text (keine Markdown Formatierungen, etc.) Liste hervor.
-        Fang direkt ohne Einleitung mit den Schwerpunkten an und verzichte dabei auf sonstige Markdown Formatierungen!
-        Der erste Punkt muss eine grobe Zusammenfassung sein, worum es allgemein beim Gesetzestext geht.
-        Positives Beispiel, so muss dein Output sein:
-        - Punkt 1
-        - Punkt 2
-        - Punkt 3
-        - Punkt 4
-        - ...
-
-        Negatives Beispiel, so darf dein Output NICHT sein:
-        Im folgenden Teil werden viele Punkte besprochen:
-        - **Punkt 1**: § 13 Abs. 6b  
-        - **Punkt 2** [...] § 32 Abs. 12 bis 33 und § 44 Z 5c
-        - **Punkt 3**: ...
-        - **Punkt 4**
-        - ...
-
-        Schreibe maximal 5 Schwerpunkte und halte dich kurz!
-        """,
-        model=req.model,
-        use_openai=False,
-        json_schema=req.json_schema
-    )
-    out = await make_llm_request(llm_request)
-    return SummaryResponse(summary=out)
-
-
-@router.post("/summarize_input_streamed")
-async def summarize_input_streamed(
-    req: SummaryRequest, _: bool = Depends(verify_jwt)
-) -> StreamingResponse:
-    async def stream():
-        for chunk in ["streamed", "summary"]:
-            yield f"{chunk}\n"
-            await asyncio.sleep(0.3)
-
-    return StreamingResponse(stream(), media_type="text/plain")
-
-
-@router.post("/summarize_input_from_url", response_model=SummaryResponse)
-async def summarize_input_from_url(
-    req: SummaryFromUrlRequest, _: bool = Depends(verify_jwt)
-) -> SummaryResponse:
-    return SummaryResponse(summary=f"summary for {req.url}")
-
-
-@router.post("/summarize_input_from_url_streamed")
-async def summarize_input_from_url_streamed(
-    req: SummaryFromUrlRequest, _: bool = Depends(verify_jwt)
-) -> StreamingResponse:
-    async def stream():
-        for chunk in ["streamed", "url", "summary"]:
             yield f"{chunk}\n"
             await asyncio.sleep(0.3)
 
@@ -275,7 +203,7 @@ async def make_topics_predictions_from_url(
 @router.get("/extract_delegate_preview_video_qa", response_model=QAResponse)
 async def extract_delegate_preview_video_qa(
     delegate_id: int, _: bool = Depends(verify_jwt)
-) -> QAResponse: 
+) -> QAResponse:
     transcribe_results = None
     try:
         transcribe_results = process_video(delegate_id, model)
@@ -285,7 +213,7 @@ async def extract_delegate_preview_video_qa(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception:
         raise HTTPException(status_code=500, detail="Internal processing error")
-    
+
     qa_items = []
     for result in transcribe_results:
         qa_items.append(QAItem(question=result["question"], answer=result["answer"]))
@@ -322,23 +250,3 @@ async def embedding_embed_and_cosine(
     req: EmbedAndCosineRequest, _: bool = Depends(verify_jwt)
 ) -> CosineResponse:
     return CosineResponse(cosine_similarity=0.91)
-
-
-# === POLITICAL STANCE ===
-@router.post("/political_stance/generate", response_model=PoliticalStanceResponse)
-async def political_stance_generate(
-    req: PoliticalStanceRequest, _: bool = Depends(verify_jwt)
-) -> PoliticalStanceResponse:
-    return PoliticalStanceResponse(stance="stance placeholder")
-
-
-@router.post("/political_stance/generate_streamed")
-async def political_stance_generate_streamed(
-    req: PoliticalStanceRequest, _: bool = Depends(verify_jwt)
-) -> StreamingResponse:
-    async def stream():
-        for chunk in ["streaming", "stance"]:
-            yield f"{chunk}\n"
-            await asyncio.sleep(0.3)
-
-    return StreamingResponse(stream(), media_type="text/plain")
