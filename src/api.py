@@ -62,8 +62,6 @@ FAKE_USERS_DB = {
 
 logger = logging.getLogger("uvicorn.error")
 
-logger.info(f"Received summarize request with input length: hi")
-
 model = None
 
 def is_localhost(ip: str) -> bool:
@@ -252,7 +250,7 @@ async def embedding_embed(
         model_id = "mixedbread-ai/deepset-mxbai-embed-de-large-v1"
     if model_id not in models:
         raise HTTPException(status_code=400, detail=str("Model not supported"))
-    model = models[model_id]    
+    model = models[model_id]
 
     embedding = model.encode([req.input])[0]
 
@@ -268,14 +266,14 @@ async def embedding_embed_and_cosine(
         model_id = "mixedbread-ai/deepset-mxbai-embed-de-large-v1"
     if model_id not in models:
         raise HTTPException(status_code=400, detail=str("Model not supported"))
-    model = models[model_id]    
+    model = models[model_id]
     model.similarity_fn_name = SimilarityFunction.COSINE
 
     lhs_embedding = model.encode([req.lhs])[0]
     rhs_embedding = model.encode([req.rhs])[0]
 
     similarity = model.similarity(lhs_embedding, rhs_embedding)
-   
+
     return CosineResponse(cosine_similarity=similarity)
 
 

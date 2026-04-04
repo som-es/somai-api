@@ -24,7 +24,7 @@ DEFAULT_OPTIONS = {
     "stop": ["<|eot_id|>", "</s>"],
 }
 
-timeout = aiohttp.ClientTimeout(total=1200)
+timeout = ClientTimeout(total=1200)
 
 class LlamaCppAPIClient:
     def __init__(
