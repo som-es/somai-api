@@ -62,9 +62,7 @@ logger = logging.getLogger("uvicorn.error")
 
 logger.info(f"Received summarize request with input length: hi")
 
-model = whisper.load_model(
-        name="medium",
-        device="cpu")
+model = None
 
 def is_localhost(ip: str) -> bool:
     return ip in ("127.0.0.1", "::1")
@@ -204,6 +202,11 @@ async def make_topics_predictions_from_url(
 async def extract_delegate_preview_video_qa(
     delegate_id: int, _: bool = Depends(verify_jwt)
 ) -> QAResponse:
+    if model is None:
+        model = whisper.load_model(
+                name="medium",
+                device="cpu")
+
     transcribe_results = None
     try:
         transcribe_results = process_video(delegate_id, model)
