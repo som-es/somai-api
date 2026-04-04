@@ -9,3 +9,4 @@ pytesseract>=0.3.13
 openai-whisper>=20250625
 opencv-python>=4.13
 moviepy>=2.2.1
+sentence-transformers>=5

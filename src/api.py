@@ -4,11 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
 import os
+from sentence_transformers import SimilarityFunction
 from typing import AsyncGenerator
 import asyncio
 import logging
 import whisper
 from transcriber import process_video
+from embedding_models import models
 
 from llamacpp_client.llamacpp_client import DEFAULT_OPTIONS
 from models import (
@@ -245,11 +247,53 @@ async def speech_embedding_update_all(
 async def embedding_embed(
     req: EmbeddingRequest, _: bool = Depends(verify_jwt)
 ) -> EmbeddingResponse:
-    return EmbeddingResponse(embedding=[0.12, 0.34, 0.56])
+    model_id = req.model
+    if not req.model:
+        model_id = "mixedbread-ai/deepset-mxbai-embed-de-large-v1"
+    if model_id not in models:
+        raise HTTPException(status_code=400, detail=str("Model not supported"))
+    model = models[model_id]    
+
+    embedding = model.encode([req.input])[0]
+
+    return EmbeddingResponse(embedding=embedding)
 
 
 @router.post("/embedding/embed_and_cosine", response_model=CosineResponse)
 async def embedding_embed_and_cosine(
     req: EmbedAndCosineRequest, _: bool = Depends(verify_jwt)
 ) -> CosineResponse:
-    return CosineResponse(cosine_similarity=0.91)
+    model_id = req.model
+    if not req.model:
+        model_id = "mixedbread-ai/deepset-mxbai-embed-de-large-v1"
+    if model_id not in models:
+        raise HTTPException(status_code=400, detail=str("Model not supported"))
+    model = models[model_id]    
+    model.similarity_fn_name = SimilarityFunction.COSINE
+
+    lhs_embedding = model.encode([req.lhs])[0]
+    rhs_embedding = model.encode([req.rhs])[0]
+
+    similarity = model.similarity(lhs_embedding, rhs_embedding)
+   
+    return CosineResponse(cosine_similarity=similarity)
+
+
+# === POLITICAL STANCE ===
+@router.post("/political_stance/generate", response_model=PoliticalStanceResponse)
+async def political_stance_generate(
+    req: PoliticalStanceRequest, _: bool = Depends(verify_jwt)
+) -> PoliticalStanceResponse:
+    return PoliticalStanceResponse(stance="stance placeholder")
+
+
+@router.post("/political_stance/generate_streamed")
+async def political_stance_generate_streamed(
+    req: PoliticalStanceRequest, _: bool = Depends(verify_jwt)
+) -> StreamingResponse:
+    async def stream():
+        for chunk in ["streaming", "stance"]:
+            yield f"{chunk}\n"
+            await asyncio.sleep(0.3)
+
+    return StreamingResponse(stream(), media_type="text/plain")

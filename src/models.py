@@ -70,6 +70,7 @@ class GenericStatusResponse(BaseModel):
 # === EMBEDDING OPS ===
 class EmbeddingRequest(BaseModel):
     input: str
+    model: Optional[str] = None
 
 class EmbeddingResponse(BaseModel):
     embedding: List[float]
@@ -77,6 +78,7 @@ class EmbeddingResponse(BaseModel):
 class EmbedAndCosineRequest(BaseModel):
     lhs: str
     rhs: str
+    model: Optional[str] = None
 
 class CosineResponse(BaseModel):
     cosine_similarity: float

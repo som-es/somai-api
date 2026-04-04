@@ -3,3 +3,4 @@ __pycache__
 nohup.out
 delegate_videos
 segment*mp4
+qdrant_storage
