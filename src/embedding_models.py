@@ -1,6 +1,6 @@
 from sentence_transformers import SentenceTransformer
 
-model_ids = ["mixedbread-ai/deepset-mxbai-embed-de-large-v1", "Qwen/Qwen3-Embedding-0.6B"]
+model_ids = ["mixedbread-ai/deepset-mxbai-embed-de-large-v1", "Qwen/Qwen3-Embedding-4B"]
 
 models = {}
 for model_id in model_ids:

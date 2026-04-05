@@ -1,47 +1,47 @@
-import datetime
-from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import StreamingResponse
-import os
-from sentence_transformers import SimilarityFunction
-from typing import AsyncGenerator
 import asyncio
+import datetime
 import logging
-import whisper
-from transcriber import process_video
-from embedding_models import models
+import os
+from datetime import datetime, timedelta, timezone
+from typing import AsyncGenerator
 
-from llamacpp_client.llamacpp_client import DEFAULT_OPTIONS
+import bcrypt
+import jwt
+import whisper
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt import ExpiredSignatureError, InvalidTokenError, PyJWTError
+from sentence_transformers import SimilarityFunction
+
+from embedding_models import models
+from llamacpp_client import LlamaCppAPIClient
+from llamacpp_client.llamacpp_client import DEFAULT_OPTIONS, MODEL
 from models import (
+    CosineResponse,
+    EmbedAndCosineRequest,
+    EmbeddingRequest,
+    EmbeddingResponse,
+    GenericStatusResponse,
     LLMRequest,
     LLMResponse,
     LoginRequest,
     LoginResponse,
-    SummaryRequest,
-    SummaryFromUrlRequest,
-    SummaryResponse,
-    TopicsRequest,
-    TopicsFromUrlRequest,
-    TopicsResponse,
-    QAResponse,
+    PoliticalStanceRequest,
+    PoliticalStanceResponse,
     QAItem,
+    QAResponse,
     SimilarityResponse,
     SpeechEmbeddingAddRequest,
     SpeechEmbeddingUpdateRequest,
-    GenericStatusResponse,
-    EmbeddingRequest,
-    EmbeddingResponse,
-    EmbedAndCosineRequest,
-    CosineResponse,
-    PoliticalStanceRequest,
-    PoliticalStanceResponse,
+    SummaryFromUrlRequest,
+    SummaryRequest,
+    SummaryResponse,
+    TopicsFromUrlRequest,
+    TopicsRequest,
+    TopicsResponse,
 )
-import bcrypt
-import jwt
-from jwt import PyJWTError, ExpiredSignatureError, InvalidTokenError
-
-from llamacpp_client import LlamaCppAPIClient
+from transcriber import process_video
 
 router = APIRouter()
 
@@ -54,18 +54,22 @@ API_SECRET = os.getenv("API_SECRET")
 
 if not JWT_SECRET or not API_SECRET:
     print("No Secrets given.")
-    quit();
+    quit()
 
 FAKE_USERS_DB = {
-    "API_USER": bcrypt.hashpw(bytes(API_SECRET, encoding="utf-8"), bcrypt.gensalt()).decode("utf-8"),
+    "API_USER": bcrypt.hashpw(
+        bytes(API_SECRET, encoding="utf-8"), bcrypt.gensalt()
+    ).decode("utf-8"),
 }
 
 logger = logging.getLogger("uvicorn.error")
 
 model = None
 
+
 def is_localhost(ip: str) -> bool:
     return ip in ("127.0.0.1", "::1")
+
 
 @router.post("/local_login", response_model=LoginResponse)
 async def local_login(request: Request):
@@ -73,7 +77,7 @@ async def local_login(request: Request):
     if not is_localhost(client_ip):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Local login only allowed from 127.0.0.1, got {client_ip}"
+            detail=f"Local login only allowed from 127.0.0.1, got {client_ip}",
         )
 
     expire = datetime.utcnow() + timedelta(minutes=float(JWT_EXPIRE_MINUTES))
@@ -103,6 +107,7 @@ async def login(req: LoginRequest):
     token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
     return LoginResponse(access_token=token)
+
 
 async def verify_jwt(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -146,20 +151,34 @@ async def verify_jwt(
 
 SERVER_URL = "http://10.30.0.164:8080"
 
+model = None
+
+
 async def make_llm_request(req: LLMRequest) -> str:
     options = DEFAULT_OPTIONS
     if req.model:
         options["model"] = req.model
     llama_client = LlamaCppAPIClient(base_url=SERVER_URL, options=options)
 
-    messages = [{"role": "system", "content": req.system}, {"role": "user", "content": req.input}]
+    messages = [
+        {"role": "system", "content": req.system},
+        {"role": "user", "content": req.input},
+    ]
     out = ""
-    async for chunk in llama_client.stream_completion(messages, json_schema=req.json_schema):
+    async for chunk in llama_client.stream_completion(
+        messages, json_schema=req.json_schema
+    ):
         delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content")
         print(delta, end="", flush=True)
         if delta:
             out += delta
     return out
+
+
+@router.get("/model", response_model=LLMResponse)
+async def get_model(_: bool = Depends(verify_jwt)) -> LLMResponse:
+    return LLMResponse(result=MODEL)
+
 
 # === LLM REQUESTS ===
 @router.post("/make_llm_request", response_model=LLMResponse)
@@ -203,9 +222,7 @@ async def extract_delegate_preview_video_qa(
     delegate_id: int, _: bool = Depends(verify_jwt)
 ) -> QAResponse:
     if model is None:
-        model = whisper.load_model(
-                name="medium",
-                device="cpu")
+        model = whisper.load_model(name="medium", device="cpu")
 
     transcribe_results = None
     try:
@@ -221,9 +238,8 @@ async def extract_delegate_preview_video_qa(
     for result in transcribe_results:
         qa_items.append(QAItem(question=result["question"], answer=result["answer"]))
 
-    return QAResponse(
-        qa=qa_items
-    )
+    return QAResponse(qa=qa_items)
+
 
 # === SPEECH EMBEDDINGS ===
 @router.post("/speech_embedding/add", response_model=GenericStatusResponse)
@@ -263,7 +279,7 @@ async def embedding_embed_and_cosine(
 ) -> CosineResponse:
     model_id = req.model
     if not req.model:
-        model_id = "mixedbread-ai/deepset-mxbai-embed-de-large-v1"
+        model_id = "Qwen/Qwen3-Embedding-4B"
     if model_id not in models:
         raise HTTPException(status_code=400, detail=str("Model not supported"))
     model = models[model_id]

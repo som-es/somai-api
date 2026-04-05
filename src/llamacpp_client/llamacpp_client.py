@@ -13,8 +13,10 @@ DEFAULT_HEADERS = {
     "Connection": "keep-alive",
 }
 
+MODEL = "gpt-oss-120b"
+
 DEFAULT_OPTIONS = {
-    "model": "gpt-oss-120b",
+    "model": MODEL,
     "temperature": 0.7,
     "top_p": 0.9,
     "top_k": 40,
@@ -25,6 +27,7 @@ DEFAULT_OPTIONS = {
 }
 
 timeout = ClientTimeout(total=1200)
+
 
 class LlamaCppAPIClient:
     def __init__(
