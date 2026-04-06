@@ -53,7 +53,7 @@ class LlamaCppAPIClient:
         body = {
             "model": self.options["model"],
             "messages": messages,
-            "temperature": 0.1 if json_schema else self.options["temperature"],
+            "temperature": 0.2 if json_schema else self.options["temperature"],
             "top_p": self.options["top_p"],
             "top_k": self.options["top_k"],
             "repeat_penalty": self.options["repeat_penalty"],
