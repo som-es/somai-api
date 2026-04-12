@@ -13,7 +13,8 @@ DEFAULT_HEADERS = {
     "Connection": "keep-alive",
 }
 
-MODEL = "gpt-oss-120b"
+# MODEL = "gpt-oss-120b"
+MODEL = "gemma-4-26B"
 
 DEFAULT_OPTIONS = {
     "model": MODEL,
