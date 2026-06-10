@@ -22,7 +22,7 @@ DEFAULT_OPTIONS = {
     "top_p": 0.9,
     "top_k": 40,
     "repeat_penalty": 1.05,
-    "max_tokens": 4096 * 2,
+    "max_tokens": 4096 * 6,
     "stream": True,
     "stop": ["<|eot_id|>", "</s>"],
 }
