@@ -168,11 +168,15 @@ async def make_llm_request(req: LLMRequest) -> str:
     async for chunk in llama_client.stream_completion(
         messages, json_schema=req.json_schema
     ):
-        print(chunk)
-        delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content")
-        print(delta, end="", flush=True)
-        if delta:
-            out += delta
+        delta = chunk.get("choices", [{}])[0].get("delta", {})
+        reasoning_content = delta.get("reasoning_content")
+        if reasoning_content:
+            print(reasoning_content, end="", flush=True)
+
+        content = delta.get("content")
+        if content:
+            print(content, end="", flush=True)
+            out += content
     return out
 
 
