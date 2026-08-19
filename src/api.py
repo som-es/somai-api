@@ -261,6 +261,8 @@ async def speech_embedding_update_all(
     return GenericStatusResponse(status="all embeddings updated")
 
 
+DEFAULT_EMBEDDING_MODEL = "mixedbread-ai/deepset-mxbai-embed-de-large-v1"
+
 # === EMBEDDING OPS ===
 @router.post("/embedding/embed", response_model=EmbeddingResponse)
 async def embedding_embed(
@@ -268,7 +270,7 @@ async def embedding_embed(
 ) -> EmbeddingResponse:
     model_id = req.model
     if not req.model:
-        model_id = "mixedbread-ai/deepset-mxbai-embed-de-large-v1"
+        model_id = DEFAULT_EMBEDDING_MODEL
     if model_id not in models:
         raise HTTPException(status_code=400, detail=str("Model not supported"))
     model = models[model_id]
@@ -276,6 +278,10 @@ async def embedding_embed(
     embedding = model.encode([req.input])[0]
 
     return EmbeddingResponse(embedding=embedding)
+
+@router.get("/embedding/default_model", response_model=LLMResponse)
+async def get_default_embedding_model(_: bool = Depends(verify_jwt)) -> LLMResponse:
+    return LLMResponse(result=DEFAULT_EMBEDDING_MODEL)
 
 
 @router.post("/embedding/embed_and_cosine", response_model=CosineResponse)
