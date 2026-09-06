@@ -311,11 +311,10 @@ async def embedding_reranking(
     num_results = len(req.to_rerank) if req.top_n is None else max(req.top_n, 0)
 
     try:
-        rankings = await asyncio.to_thread(
-            model.rank, req.input, req.to_rerank, num_results=num_results
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Reranking failed")
+        rankings = await asyncio.to_thread(model.rank, req.input, req.to_rerank)
+    except Exception as e:
+        logger.exception("Reranking failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
     results = [
         RerankedDocument(
@@ -323,7 +322,7 @@ async def embedding_reranking(
             text=req.to_rerank[ranking["corpus_id"]],
             score=float(ranking["score"]),
         )
-        for ranking in rankings
+        for ranking in rankings[:num_results]
     ]
 
     return RerankingResponse(model=model_id, results=results)
