@@ -92,12 +92,10 @@ class RerankingRequest(BaseModel):
 class RerankedDocument(BaseModel):
     index: int
     text: str
-    score: float
 
 class RerankingResponse(BaseModel):
     model: str
     results: List[RerankedDocument]
-    scores: List[float]
 
 
 # === POLITICAL STANCE ===
