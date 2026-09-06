@@ -14,7 +14,12 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import ExpiredSignatureError, InvalidTokenError, PyJWTError
 from sentence_transformers import SimilarityFunction
 
-from embedding_models import models
+from embedding_models import (
+    DEFAULT_RERANK_MODEL,
+    models,
+    rerank,
+    rerank_model_ids,
+)
 from llamacpp_client import LlamaCppAPIClient
 from llamacpp_client.llamacpp_client import DEFAULT_OPTIONS, MODEL
 from models import (
@@ -31,6 +36,9 @@ from models import (
     PoliticalStanceResponse,
     QAItem,
     QAResponse,
+    RerankedDocument,
+    RerankingRequest,
+    RerankingResponse,
     SimilarityResponse,
     SpeechEmbeddingAddRequest,
     SpeechEmbeddingUpdateRequest,
@@ -282,6 +290,37 @@ async def embedding_embed(
 @router.get("/embedding/default_model", response_model=LLMResponse)
 async def get_default_embedding_model(_: bool = Depends(verify_jwt)) -> LLMResponse:
     return LLMResponse(result=DEFAULT_EMBEDDING_MODEL)
+
+@router.get("/embedding/reranking/default_model", response_model=LLMResponse)
+async def get_default_rerank_model(_: bool = Depends(verify_jwt)) -> LLMResponse:
+    return LLMResponse(result=DEFAULT_RERANK_MODEL)
+
+@router.post("/embedding/reranking", response_model=RerankingResponse)
+async def embedding_reranking(
+    req: RerankingRequest, _: bool = Depends(verify_jwt)
+) -> RerankingResponse:
+    model_id = req.model
+    if not req.model:
+        model_id = DEFAULT_RERANK_MODEL
+    if model_id not in rerank_model_ids:
+        raise HTTPException(status_code=400, detail=str("Model not supported"))
+
+    if not req.to_rerank:
+        return RerankingResponse(model=model_id, results=[])
+
+    try:
+        ranked = await asyncio.to_thread(
+            rerank, req.input, req.to_rerank, model_id, req.top_n
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Reranking failed")
+
+    results = [
+        RerankedDocument(index=index, text=req.to_rerank[index], score=score)
+        for index, score in ranked
+    ]
+
+    return RerankingResponse(model=model_id, results=results)
 
 
 @router.post("/embedding/embed_and_cosine", response_model=CosineResponse)

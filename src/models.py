@@ -83,6 +83,21 @@ class EmbedAndCosineRequest(BaseModel):
 class CosineResponse(BaseModel):
     cosine_similarity: float
 
+class RerankingRequest(BaseModel):
+    input: str
+    to_rerank: List[str]
+    model: Optional[str] = None
+    top_n: Optional[int] = None
+
+class RerankedDocument(BaseModel):
+    index: int
+    text: str
+    score: float
+
+class RerankingResponse(BaseModel):
+    model: str
+    results: List[RerankedDocument]
+
 
 # === POLITICAL STANCE ===
 class PoliticalStanceRequest(BaseModel):
