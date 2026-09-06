@@ -310,8 +310,10 @@ async def embedding_reranking(
 
     num_results = len(req.to_rerank) if req.top_n is None else max(req.top_n, 0)
 
+    pairs = [(req.input, doc) for doc in req.to_rerank]
     try:
         rankings = await asyncio.to_thread(model.rank, req.input, req.to_rerank)
+        scores = await asyncio.to_thread(model.predict, pairs)
     except Exception as e:
         logger.exception("Reranking failed")
         raise HTTPException(status_code=500, detail=str(e))
@@ -325,7 +327,7 @@ async def embedding_reranking(
         for ranking in rankings[:num_results]
     ]
 
-    return RerankingResponse(model=model_id, results=results)
+    return RerankingResponse(model=model_id, results=results, scores=scores)
 
 
 @router.post("/embedding/embed_and_cosine", response_model=CosineResponse)
