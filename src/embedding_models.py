@@ -15,7 +15,10 @@ for model_id in model_ids:
         tokenizer.pad_token = tokenizer.eos_token
     models[model_id] = model
 
-rerank_model_ids = ["mixedbread-ai/mxbai-rerank-large-v2"]
+rerank_model_ids = [
+    "Qwen/Qwen3-Reranker-4B",
+    "mixedbread-ai/mxbai-rerank-large-v2",
+]
 
 cross_encoder_models = {}
 for model_id in rerank_model_ids:
