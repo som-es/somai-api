@@ -16,9 +16,8 @@ from sentence_transformers import SimilarityFunction
 
 from embedding_models import (
     DEFAULT_RERANK_MODEL,
+    cross_encoder_models,
     models,
-    rerank,
-    rerank_model_ids,
 )
 from llamacpp_client import LlamaCppAPIClient
 from llamacpp_client.llamacpp_client import DEFAULT_OPTIONS, MODEL
@@ -302,22 +301,29 @@ async def embedding_reranking(
     model_id = req.model
     if not req.model:
         model_id = DEFAULT_RERANK_MODEL
-    if model_id not in rerank_model_ids:
+    if model_id not in cross_encoder_models:
         raise HTTPException(status_code=400, detail=str("Model not supported"))
+    model = cross_encoder_models[model_id]
 
     if not req.to_rerank:
         return RerankingResponse(model=model_id, results=[])
 
+    num_results = len(req.to_rerank) if req.top_n is None else max(req.top_n, 0)
+
     try:
-        ranked = await asyncio.to_thread(
-            rerank, req.input, req.to_rerank, model_id, req.top_n
+        rankings = await asyncio.to_thread(
+            model.rank, req.input, req.to_rerank, num_results=num_results
         )
     except Exception:
         raise HTTPException(status_code=500, detail="Reranking failed")
 
     results = [
-        RerankedDocument(index=index, text=req.to_rerank[index], score=score)
-        for index, score in ranked
+        RerankedDocument(
+            index=ranking["corpus_id"],
+            text=req.to_rerank[ranking["corpus_id"]],
+            score=float(ranking["score"]),
+        )
+        for ranking in rankings
     ]
 
     return RerankingResponse(model=model_id, results=results)
