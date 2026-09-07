@@ -15,16 +15,22 @@ for model_id in model_ids:
         tokenizer.pad_token = tokenizer.eos_token
     models[model_id] = model
 
-rerank_model_ids = [
+qwen_reranker = CrossEncoder(
     "Qwen/Qwen3-Reranker-4B",
-    "mixedbread-ai/mxbai-rerank-large-v2",
+    prompts={"classification": "Given a search query, judge if this is a German news article about government regulation or legislation relevant to the query"},
+    default_prompt_name="classification",
+)
+
+rerank_models = [
+    ("Qwen/Qwen3-Reranker-4B", qwen_reranker),
+    ("mixedbread-ai/mxbai-rerank-large-v2", CrossEncoder("mixedbread-ai/mxbai-rerank-large-v2")),
 ]
 
 cross_encoder_models = {}
-for model_id in rerank_model_ids:
-    cross_encoder_models[model_id] = CrossEncoder(model_id)
+for model_id, model in rerank_models:
+    cross_encoder_models[model_id] = model
 
-DEFAULT_RERANK_MODEL = rerank_model_ids[0]
+DEFAULT_RERANK_MODEL = rerank_models[0][0]
 
 if __name__ == "__main__":
     test_text = "This is a test"
